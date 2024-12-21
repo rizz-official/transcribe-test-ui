@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Transcription Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+      }
+      #captions {
+        margin-top: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+        margin: 5px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Live Transcription Test</h1>
+    <button id="record">Start/Stop Recording</button>
+    <div id="captions">Transcriptions will appear here...</div>
+
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <script>
+      const captions = document.getElementById("captions");
+
+      async function getMicrophone() {
+        const userMedia = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        return new MediaRecorder(userMedia);
+      }
+
+      async function openMicrophone(microphone, socket) {
+        microphone.start(500);
+
+        microphone.onstart = () => {
+          console.log("Microphone opened");
+        };
+
+        microphone.onstop = () => {
+          console.log("Microphone closed");
+        };
+
+        microphone.ondataavailable = (e) => {
+          console.log("Sending audio packet to server...");
+          socket.emit("packet-sent", e.data);
+        };
+      }
+
+      async function closeMicrophone(microphone) {
+        microphone.stop();
+      }
+
+      async function init() {
+        const socket = io("http://127.0.0.1:3000"); // Replace with your server URL if deployed
+        const recordButton = document.getElementById("record");
+        let microphone;
+
+        socket.on("connect", () => {
+          console.log("Connected to server");
+        });
+
+        socket.on("transcript", (transcript) => {
+          captions.innerText =
+            transcript || "Transcriptions will appear here...";
+        });
+
+        recordButton.addEventListener("click", async () => {
+          if (!microphone) {
+            microphone = await getMicrophone();
+            await openMicrophone(microphone, socket);
+          } else {
+            await closeMicrophone(microphone);
+            microphone = null;
+          }
+        });
+      }
+
+      window.onload = init;
+    </script>
+  </body>
+</html>
